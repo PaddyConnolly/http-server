@@ -1,6 +1,6 @@
 # 🦀 Page Vault
 
-A single-threaded HTTP server built in Rust (stdlib only) for archiving webpage HTML.
+A single-threaded HTTP server built solely using Rust's standard library for archiving webpage HTML.
 
 ## Endpoints
 
