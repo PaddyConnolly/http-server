@@ -1,10 +1,12 @@
 use crate::router::route_request;
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Result, Write};
 use std::net::TcpStream;
 
 pub struct HttpRequest {
     pub method: Option<Method>,
     pub path: Option<String>,
+    pub headers: HashMap<String, String>,
     pub body: Option<String>,
 }
 
@@ -22,17 +24,29 @@ fn get_status_code_text(code: u16) -> &'static str {
     }
 }
 
-fn parse_start_line(string: &str) -> (Option<&str>, Option<&str>) {
+fn parse_request_line(line: &str) -> (Option<&str>, Option<&str>) {
     // Takes in first line of TCP Stream, and parses the method and path
-    let mut parts = string.split_whitespace();
+    let mut parts = line.split_whitespace();
     (parts.next(), parts.next())
 }
 
-fn parse_content_length_header(string: &str) -> Option<usize> {
-    // Takes in line of TCP Stream, and parses Content-Length if present
-    let mut parts = string.split_whitespace();
-    parts.next();
-    parts.next()?.parse().ok()
+fn parse_header(line: &str, headers: &mut HashMap<String, String>) {
+    if let Some((key, value)) = line.split_once(':') {
+        headers.insert(
+            key.to_string().trim().to_lowercase(),
+            value.trim().to_string(),
+        );
+    }
+}
+
+fn parse_body(
+    reader: &mut BufReader<TcpStream>,
+    headers: &HashMap<String, String>,
+) -> Option<String> {
+    let length = headers.get("content-length")?.parse::<usize>().ok()?;
+    let mut buffer = vec![0u8; length];
+    reader.read_exact(&mut buffer).ok()?;
+    String::from_utf8(buffer).ok()
 }
 
 pub fn build_response(status_code: u16, body: &str) -> String {
@@ -50,17 +64,16 @@ pub fn handle_connection(stream: TcpStream) -> Result<()> {
     // Handle the connection passed by TcpListener
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
-
     let mut method: Option<Method> = None;
     let mut path: Option<String> = None;
-    let mut content_length: Option<usize> = None;
+    let mut headers: HashMap<String, String> = HashMap::new();
 
     let mut body: Option<String> = None;
 
     while let Ok(_size) = reader.read_line(&mut line) {
         // Parse start line
         if method.is_none() {
-            if let (Some(first), Some(second)) = parse_start_line(&line) {
+            if let (Some(first), Some(second)) = parse_request_line(&line) {
                 match first {
                     "POST" => {
                         method = Some(Method::POST);
@@ -72,37 +85,44 @@ pub fn handle_connection(stream: TcpStream) -> Result<()> {
                     }
                     _ => {}
                 }
+            } else {
+                let response = build_response(400, "Bad Request");
+                let mut stream = reader.into_inner();
+                stream.write_all(response.as_bytes()).ok();
+                stream.flush().ok();
+                return Ok(());
             }
+
+            line.clear();
+            continue;
         }
 
-        // Find Content-Length
-        if line.starts_with("Content-Length:") {
-            content_length = parse_content_length_header(&line);
-        }
-
-        // Find empty line, signalling end of headers
+        // Find empty line, signalling end of headers, starting parsing body
         if line.trim().is_empty() {
-            if let Some(length) = content_length {
-                let mut buffer = vec![0u8; length];
-
-                if let Ok(()) = reader.read_exact(&mut buffer) {
-                    body = String::from_utf8(buffer).ok();
-                }
-            }
+            body = parse_body(&mut reader, &headers);
             break;
         }
+
+        // Otherwise, line is a header
+        parse_header(&line, &mut headers);
+
         line.clear();
     }
 
-    let request = HttpRequest { method, path, body };
+    let request = HttpRequest {
+        method,
+        path,
+        headers,
+        body,
+    };
 
     let response = route_request(request);
 
-    let response = response.as_bytes();
+    let response_string = build_response(response.0, &response.1);
 
     let mut stream = reader.into_inner();
 
-    stream.write_all(response)?;
+    stream.write_all(response_string.as_bytes())?;
     stream.flush()?;
 
     Ok(())

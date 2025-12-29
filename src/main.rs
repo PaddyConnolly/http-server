@@ -1,12 +1,15 @@
+mod db;
 mod handlers;
 mod router;
 mod server;
 
 use crate::server::handle_connection;
-use std::io::Result;
+use std::error::Error;
 use std::net::TcpListener;
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
+    db::db_init()?;
+
     let listener = TcpListener::bind("127.0.0.1:8080")?;
 
     println!("Server listening on 127.0.0.1:8080");
