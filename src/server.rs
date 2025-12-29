@@ -14,6 +14,7 @@ pub struct HttpRequest {
 pub enum Method {
     GET,
     POST,
+    OPTIONS,
 }
 
 fn get_status_code_text(code: u16) -> &'static str {
@@ -52,7 +53,13 @@ fn parse_body(
 pub fn build_response(status_code: u16, body: &str) -> String {
     // Takes in a status_code and builds a response
     format!(
-        "HTTP/1.1 {} {}\r\nContent-Length: {}\r\n\r\n{}",
+        "HTTP/1.1 {} {}\r\n\
+        Content-Length: {}\r\n\
+        Access-Control-Allow-Origin: *\r\n\
+        Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n\
+        Access-Control-Allow-Headers: Page-URL, Content-Type\r\n\
+        \r\n\
+        {}",
         status_code,
         get_status_code_text(status_code),
         body.len(),
@@ -81,6 +88,10 @@ pub fn handle_connection(stream: TcpStream) -> Result<()> {
                     }
                     "GET" => {
                         method = Some(Method::GET);
+                        path = Some(String::from(second));
+                    }
+                    "OPTIONS" => {
+                        method = Some(Method::OPTIONS);
                         path = Some(String::from(second));
                     }
                     _ => {}
