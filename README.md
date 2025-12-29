@@ -2,8 +2,11 @@
 
 A single-threaded HTTP server built solely using Rust's standard library for archiving webpage HTML.
 
-🚧 Under Construction 🚧
+## Usage
 
+```
+cargo run
+```
 ## Endpoints
 
 ### `GET /health`
