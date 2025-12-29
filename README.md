@@ -1,4 +1,4 @@
-# 🦀 Page Vault
+# 🦀 Page Vault Server
 
 A single-threaded HTTP server built solely using Rust's standard library for archiving webpage HTML.
 
