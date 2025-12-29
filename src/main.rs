@@ -11,8 +11,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     db::db_init()?;
 
     let listener = TcpListener::bind("127.0.0.1:8080")?;
-
-    println!("Server listening on 127.0.0.1:8080");
+    println!("\x1b[1;92m   Listening\x1b[0m at http://127.0.0.1:8080");
 
     for stream in listener.incoming() {
         match stream {
