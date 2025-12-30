@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 pub fn db_init() -> Result<()> {
-    let conn = Connection::open("page-vault.db")?;
+    let conn = Connection::open("~/.local/share/page-vault/page-vault.db")?;
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS page (
