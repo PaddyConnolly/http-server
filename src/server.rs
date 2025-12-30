@@ -17,6 +17,16 @@ pub enum Method {
     OPTIONS,
 }
 
+impl Method {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Method::GET => "GET",
+            Method::POST => "POST",
+            Method::OPTIONS => "OPTIONS",
+        }
+    }
+}
+
 fn get_status_code_text(code: u16) -> &'static str {
     match code {
         200 => "OK",
@@ -48,6 +58,18 @@ fn parse_body(
     let mut buffer = vec![0u8; length];
     reader.read_exact(&mut buffer).ok()?;
     String::from_utf8(buffer).ok()
+}
+
+fn log_request(request: &HttpRequest) {
+    let log = format!(
+        "Method: {}\r\n\
+        Path: {}\r\n\
+        Content-Length: {}\r\n",
+        request.method.as_ref().map_or("-", |m| m.as_str()),
+        request.path.as_deref().unwrap_or("-"),
+        request.body.as_deref().map_or(0, str::len)
+    );
+    println!("{}", log)
 }
 
 pub fn build_response(status_code: u16, body: &str) -> String {
@@ -126,6 +148,8 @@ pub fn handle_connection(stream: TcpStream) -> Result<()> {
         headers,
         body,
     };
+
+    log_request(&request);
 
     let response = route_request(request);
 
