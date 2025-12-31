@@ -38,20 +38,12 @@ pub fn db_init() -> Result<()> {
 }
 
 pub fn insert_page(url: &str, html: &str) -> Result<()> {
-    let conn = match Connection::open(db_path()?) {
-        Ok(conn) => conn,
-        Err(e) => {
-            eprintln!("Failed to open connection to database: {}", e);
-            return Err(e);
-        }
-    };
+    let path = db_path()?;
 
-    if let Err(e) = conn.execute("INSERT INTO page (html, url) VALUES (?1, ?2)", (html, url)) {
-        eprintln!("Failed to insert into database: {}", e);
-        return Err(e);
-    } else {
-        println!("Saved page to database!")
-    }
-
+    let conn = Connection::open(&path)?;
+    let _ = conn.execute("PRAGMA journal_mode = WAL;", []);
+    let _ = conn.execute("PRAGMA busy_timeout = 5000;", []);
+    conn.execute("INSERT INTO page (html, url) VALUES (?1, ?2)", (html, url))?;
+    println!("Saved page to database!");
     Ok(())
 }
